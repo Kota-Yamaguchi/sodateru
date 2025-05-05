@@ -1,0 +1,49 @@
+{
+	"name": "@sodateru",
+	"version": "1.0.0",
+	"main": "index.js",
+	"scripts": {
+		"test": "vitest",
+		"dev": "mastra dev",
+		"build": "mastra build",
+		"mcp:stdio": "tsx -r dotenv/config src/mastra/mcp-server.ts",
+		"lint": "biome check --write .",
+		"format": "biome format --write ."
+	},
+	"bin": {
+		"@sodateru": "cli.js"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"description": "",
+	"type": "module",
+	"dependencies": {
+		"@ai-sdk/google": "^1.2.13",
+		"@mastra/core": "^0.9.1",
+		"@mastra/libsql": "^0.0.1",
+		"@mastra/mcp": "^0.4.0",
+		"@mastra/pg": "^0.3.1",
+		"@mastra/rag": "^0.1.19",
+		"ai": "^4.3.10",
+		"dotenv": "^16.5.0",
+		"envalid": "^8.0.0",
+		"react": "^19.1.0",
+		"react-dom": "^19.1.0",
+		"reactflow": "^11.11.4",
+		"zod": "^3.24.3"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "1.9.4",
+		"@types/node": "^22.15.2",
+		"@types/react": "^19.1.2",
+		"@types/react-dom": "^19.1.2",
+		"@vitejs/plugin-react": "^4.4.1",
+		"mastra": "^0.5.0",
+		"test": "^3.3.0",
+		"tsx": "^4.19.3",
+		"typescript": "^5.8.3",
+		"vite": "^6.3.3",
+		"vitest": "^3.1.2"
+	}
+}
