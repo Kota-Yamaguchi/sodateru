@@ -1,17 +1,30 @@
-# Sodateru サーバー
+# Sodateru Server
 
-## 概要
-このリポジトリはSodateruサーバーのコードを含んでいます。
+## Overview
+Sodateru is an MCP server equipped with self-updating Agentic GraphRAG.
 
+There are still issues when generating medium to large-scale code with a single LLM agent:
+- Important background information that isn't specifically included in the PRD gets lost or ends up buried in code.
+- PRDs don't generate code as expected in long contexts. LLM's "lost in the middle" problem persists.
+- Handling large contexts continuously increases costs and latency. When using Cursor, costs and usage limits become concerns.
+Cursor quickly becomes a "Slow Request."
 
-### PostgreSQLの起動
-Sodateruを使用する前に、DockerでPostgreSQLを起動する必要があります：
+What's needed is "having the necessary information when it's needed."
+For this purpose, we believe a self-updating Agentic GraphRAG is necessary.
+We use Agentic GraphRAG to retrieve the required information when needed.
+Additionally, the auto-update feature helps store necessary information.
 
+### Features Planned for Development
 
+- Obsidian import functionality
+- Notion import functionality
 
-#### 直接Dockerコマンドを使用する方法
+### Starting PostgreSQL
+Before using Sodateru, you need to start PostgreSQL with Docker:
+
+#### Using Docker Commands Directly
 ```bash
-# PostgreSQLコンテナの起動
+# Start PostgreSQL container
 docker run -d --name sodateru-postgres \
  -p 8989:5432 \
   -v postgres_data:/var/lib/postgresql/data \
@@ -21,23 +34,22 @@ docker run -d --name sodateru-postgres \
   201610615/sodateru-postgres:v0.0.0
 ```
 
-**注意**: 
-- PostgreSQLコンテナが起動していない場合、サーバーは正常に動作しません。
-- 同じ名前のコンテナが既に存在する場合は、以下のコマンドで既存のコンテナを削除してから再度実行してください：
+**Note**: 
+- The server will not function properly if the PostgreSQL container is not running.
+- If a container with the same name already exists, delete the existing container with the following command before running again:
 ```bash
 docker rm -f sodateru-postgres
 ```
 
-
-### 設定ファイル
-プロジェクトのルートディレクトリに`mcp.json`ファイルを作成することで、サーバー設定を行うこともできます：
+### Configuration File
+You can configure the server by creating an `mcp.json` file in the project's root directory:
 
 ```json
 {
 	"mcpServers": {
-		"sodateru-dev": {
+		"sodateru": {
 			"command": "npx",
-			"args": "-y @sodateru",
+			"args": ["-y", "sodateru"],
 			"env": {
 				"GOOGLE_GENERATIVE_AI_API_KEY": "{YOUR_API_TOKEN}",
 				"DATABASE_TYPE": "postgresql",
@@ -52,11 +64,11 @@ docker rm -f sodateru-postgres
 }
 ```
 
-### 環境変数の設定
-以下の環境変数を設定する必要があります：
+### Setting Environment Variables
+You need to set the following environment variables:
 
 ```
-GOOGLE_GENERATIVE_AI_API_KEY=あなたのAPIキー
+GOOGLE_GENERATIVE_AI_API_KEY=your_api_key
 DATABASE_TYPE=postgresql
 DATABASE_USER=user
 DATABASE_PASSWORD=password
@@ -65,14 +77,6 @@ DATABASE_HOST=localhost
 DATABASE_PORT=8989
 ```
 
-
-## 使用方法
-
-### サーバーの起動
-```bash
-npx -y @sodateru
-```
-
-## サポート
-問題やご質問がある場合は、イシューを作成してください。
+## Support
+If you have any issues or questions, please create an issue.
 

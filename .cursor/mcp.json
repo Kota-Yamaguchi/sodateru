@@ -3,6 +3,10 @@
 		"mastra": {
 			"command": "npx",
 			"args": ["-y", "@mastra/mcp-docs-server@latest"]
+		},
+		"sodateru": {
+			"command": "npx",
+			"args": ["-y", "sodateru"]
 		}
 	}
 }
