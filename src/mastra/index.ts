@@ -4,5 +4,5 @@ import { knowledgeTools } from "./tool";
 
 export { knowledgeAgent, knowledgeTools };
 export const mastra = new Mastra({
-	agents: { knowledgeAgent },
+	agents: { knowledge: await knowledgeAgent() },
 });
