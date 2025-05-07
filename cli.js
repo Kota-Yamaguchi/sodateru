@@ -4,6 +4,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { hideBin } from "yargs/helpers";
 import yargs from "yargs/yargs";
+import fs from "node:fs";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 // Finding server file with a relative path from project root
@@ -68,6 +70,12 @@ const argv = yargs(hideBin(process.argv))
 		description: "Database name",
 		default: "sodateru",
 	})
+	.option("mcpConfigFile", {
+		alias: "mcf",
+		type: "string",
+		description: "Path to MCP servers configuration JSON file",
+		default: path.join(__dirname, "config/mcp-servers.json"),
+	})
 	// Add other necessary options as needed
 	.env("MCP") // Allow configuration via environment variables like MCP_PORT or MCP_API_KEY
 	.help()
@@ -90,6 +98,18 @@ const env = {
 	// Add other necessary environment variables similarly
 	NODE_ENV: process.env.NODE_ENV || "production", // Default is production
 };
+
+// MCP設定ファイルの読み込み
+const configPath = process.env.MCP_CONFIG_FILE || argv.mcpConfigFile;
+try {
+	console.log(`Loading MCP configuration from ${configPath}`);
+	const json = JSON.parse(fs.readFileSync(configPath, "utf8"));
+	env.mcp = JSON.stringify(json); // JSON文字列に変換（改行やエスケープ不要）
+	console.log("Loaded MCP configuration successfully");
+} catch (err) {
+	console.error("Failed to load MCP configuration:", err);
+}
+
 // Start tsx command as a child process
 const tsxArgs = [
 	// '-r', 'dotenv/config', // dotenv might not be needed if we read in cli.ts or pass via args
