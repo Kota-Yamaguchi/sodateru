@@ -1,0 +1,82 @@
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'バージョンタイプ'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      release_note:
+        description: 'リリースノート'
+        required: false
+        type: string
+
+# GitHubへのプッシュとリリース作成のための権限設定
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Git設定
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+      - name: Node.js設定
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: 依存関係インストール
+        run: npm ci
+        
+      - name: バージョン更新
+        id: version
+        run: |
+          NEW_VERSION=$(npm version ${{ github.event.inputs.version_type }} --no-git-tag-version)
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          git add package*.json
+          git commit -m "バージョン $NEW_VERSION"
+          git tag $NEW_VERSION
+          
+          # GITHUBトークンを使用してプッシュ
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+          git push origin main
+          git push origin $NEW_VERSION
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+      - name: テスト実行
+        run: npm test
+        
+      - name: ビルド
+        run: npm run build
+        
+      - name: NPM公開
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          
+      - name: GitHub Release作成
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.new_version }}
+          name: Release ${{ steps.version.outputs.new_version }}
+          body: ${{ github.event.inputs.release_note }}
+          draft: false
+          prerelease: false 
