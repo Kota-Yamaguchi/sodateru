@@ -147,12 +147,19 @@ export const queryKnowledgeTool = createTool({
 				`📊 queryKnowledgeTool: Search results ${searchResults.length} found`,
 			); // Search result count also logged
 
-			const formattedResults = searchResults.map((result) => ({
-				id: result.id,
-				content: result.content,
-				score: result.score,
-				metadata: result.metadata || {}, // Consideration for null/undefined metadata
-			}));
+			const formattedResults = searchResults.map(
+				(result: {
+					id: string;
+					score: number;
+					content: string;
+					metadata?: Record<string, unknown>;
+				}) => ({
+					id: result.id,
+					content: result.content,
+					score: result.score,
+					metadata: result.metadata || {}, // Consideration for null/undefined metadata
+				}),
+			);
 			// console.log("📊 queryKnowledgeTool: Formatted search results:", formattedResults); // Output results content if needed
 
 			return {

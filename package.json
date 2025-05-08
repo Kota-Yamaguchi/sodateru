@@ -1,22 +1,37 @@
 {
-	"name": "sodateru",
+	"name": "@sodateru/mcp-server",
 	"version": "0.0.1",
-	"main": "index.js",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Kota-Yamaguchi/sodateru"
+	},
+	"bugs": {
+		"url": "https://github.com/Kota-Yamaguchi/sodateru/issues"
+	},
+	"main": "dist/mastra/mcp-server.js",
 	"scripts": {
 		"test": "vitest",
-		"dev": "mastra dev",
-		"build": "mastra build",
+		"build": "tsc",
+		"mastra:dev": "mastra dev",
+		"mastra:build": "mastra build",
 		"mcp:stdio": "tsx -r dotenv/config src/mastra/mcp-server.ts",
 		"lint": "biome check --write .",
-		"format": "biome format --write ."
+		"format": "biome format --write .",
+		"prepublishOnly": "npm run build",
+		"release": "npm run test && npm run build && npm publish",
+		"release:patch": "npm version patch && npm run release",
+		"release:minor": "npm version minor && npm run release",
+		"release:major": "npm version major && npm run release"
 	},
 	"bin": {
-		"@sodateru": "cli.js"
+		"mcp-server-sodateru": "cli.js"
 	},
+	"files": ["cli.js", "dist/**/*", "config/**/*", "README.md", "LICENSE"],
+
 	"keywords": [],
-	"author": "",
-	"license": "ISC",
-	"description": "",
+	"author": "Kota Yamaguchi",
+	"license": "MIT",
+	"description": "Sodateru is an MCP server equipped with self-updating Agentic GraphRAG.",
 	"type": "module",
 	"dependencies": {
 		"@ai-sdk/google": "^1.2.13",
@@ -31,7 +46,9 @@
 		"react": "^19.1.0",
 		"react-dom": "^19.1.0",
 		"reactflow": "^11.11.4",
-		"zod": "^3.24.3"
+		"zod": "^3.24.3",
+		"tsx": "^4.19.3",
+		"yargs": "^17.7.2"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
@@ -41,7 +58,6 @@
 		"@vitejs/plugin-react": "^4.4.1",
 		"mastra": "^0.5.0",
 		"test": "^3.3.0",
-		"tsx": "^4.19.3",
 		"typescript": "^5.8.3",
 		"vite": "^6.3.3",
 		"vitest": "^3.1.2"
