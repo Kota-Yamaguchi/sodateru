@@ -5,6 +5,10 @@ import { fileURLToPath } from "node:url";
 import { hideBin } from "yargs/helpers";
 import yargs from "yargs/yargs";
 import fs from "node:fs";
+import dotenv from "dotenv";
+
+// Load environment variables from .env file
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,11 +16,7 @@ const __dirname = path.dirname(__filename);
 // Note: This path resolution needs to consider behavior when installed as a package
 const serverScriptPathStdio = path.resolve(
 	__dirname,
-	"src/mastra/mcp-server.ts",
-);
-const serverScriptPathSse = path.resolve(
-	__dirname,
-	"src/mastra/mcp-server-sse.ts",
+	"dist/mastra/mcp-server.js",
 );
 const argv = yargs(hideBin(process.argv))
 	.option("apiKey", {
@@ -74,7 +74,7 @@ const argv = yargs(hideBin(process.argv))
 		alias: "mcf",
 		type: "string",
 		description: "Path to MCP servers configuration JSON file",
-		default: path.join(__dirname, "config/mcp-servers.json"),
+		default: path.join(__dirname, "config/sodateru-mcp.json"),
 	})
 	// Add other necessary options as needed
 	.env("MCP") // Allow configuration via environment variables like MCP_PORT or MCP_API_KEY
@@ -82,8 +82,7 @@ const argv = yargs(hideBin(process.argv))
 	.alias("help", "h")
 	.parseSync(); // Parse synchronously
 console.log(`Starting MCP server in ${argv.mode} mode...`);
-const serverScriptPath =
-	argv.mode === "sse" ? serverScriptPathSse : serverScriptPathStdio;
+const serverScriptPath = serverScriptPathStdio;
 // Pass values from arguments as environment variables to child process
 // Prioritize settings via arguments/environment variables over dotenv
 const env = {
@@ -110,12 +109,8 @@ try {
 	console.error("Failed to load MCP configuration:", err);
 }
 
-// Start tsx command as a child process
-const tsxArgs = [
-	// '-r', 'dotenv/config', // dotenv might not be needed if we read in cli.ts or pass via args
-	serverScriptPath,
-	// Add arguments to pass to server-side script if needed
-];
+// Use tsx instead of node for better ESM compatibility
+const tsxArgs = [serverScriptPath];
 const child = spawn("tsx", tsxArgs, {
 	stdio: "inherit", // Use parent process's standard I/O
 	env: env, // Pass configured environment variables
