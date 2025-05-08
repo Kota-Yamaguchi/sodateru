@@ -198,7 +198,14 @@ export class KnowledgeRagStorage {
 		topK = 10,
 		randomWalkSteps = 10,
 		restartProb = 0.5,
-	) {
+	): Promise<
+		{
+			id: string;
+			score: number;
+			content: string;
+			metadata?: Record<string, unknown>;
+		}[]
+	> {
 		if (this.graphRag) {
 			const result = this.graphRag.query({
 				query,
