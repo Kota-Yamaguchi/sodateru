@@ -34,28 +34,32 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-      - name: Update version from GitHub Release
+      - name: Create branch and update version from GitHub Release
+        id: update_version
         run: |
-          # Get version from GitHub Release (v0.1.0 -> 0.1.0)
-          RELEASE_VERSION=${{ github.event.release.tag_name }}
-          RELEASE_VERSION="${RELEASE_VERSION#v}"
-          
-          # Update package.json version directly (without using npm command)
-          npm version $RELEASE_VERSION --no-git-tag-version
-          
-          echo "Updated version to $RELEASE_VERSION"
-      
-      - name: Create PR for version update
-        id: create_pr
-        run: |
-          # Create a branch for version update
+          # Create a branch for version update FIRST
           VERSION=${{ github.event.release.tag_name }}
           BRANCH="version-update-${VERSION}"
           git checkout -b $BRANCH
           
-          # Commit changes and push to the new branch
+          # Then update the version number
+          RELEASE_VERSION="${VERSION#v}"
+          npm version $RELEASE_VERSION --no-git-tag-version
+          
+          # Commit changes right away
           git add package.json
           git commit -m "chore: update version to ${VERSION}"
+          
+          echo "Updated version to $RELEASE_VERSION"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
+      
+      - name: Create PR for version update
+        id: create_pr
+        run: |
+          # Get values from previous step
+          VERSION="${{ steps.update_version.outputs.version }}"
+          BRANCH="${{ steps.update_version.outputs.branch }}"
           
           # Use authentication with token
           git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
