@@ -45,7 +45,7 @@ jobs:
           
           echo "Updated version to $RELEASE_VERSION"
       
-      - name: Create and merge PR for version update
+      - name: Create PR for version update
         id: create_pr
         run: |
           # Create a branch for version update
@@ -66,12 +66,59 @@ jobs:
             --title "chore: version update ${VERSION}" \
             --body "This PR updates the package.json version following the GitHub Release publication.")
           
-          echo "PR created: ${PR_URL}"
+          # Extract PR number from URL
+          PR_NUMBER=$(echo $PR_URL | sed -E 's/.*\/([0-9]+)$/\1/')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "PR created: ${PR_URL} (PR #${PR_NUMBER})"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Approve PR with GitHub App
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { createAppAuth } = require('@octokit/auth-app');
+            const { Octokit } = require('@octokit/rest');
+            
+            // PR number from previous step
+            const prNumber = ${{ steps.create_pr.outputs.pr_number }};
+            
+            // GitHub App authentication
+            const auth = createAppAuth({
+              appId: ${{ secrets.APP_ID }},
+              privateKey: `${{ secrets.APP_PRIVATE_KEY }}`,
+              installationId: ${{ secrets.APP_INSTALLATION_ID }},
+            });
+            
+            // Get an installation token
+            const { token } = await auth({ type: "installation" });
+            
+            // Create a new Octokit instance with the installation token
+            const octokit = new Octokit({ auth: token });
+            
+            // Get repo details from context
+            const [owner, repo] = context.repo.repo.includes('/') 
+              ? context.repo.repo.split('/')
+              : [context.repo.owner, context.repo.repo];
+            
+            // Approve the PR
+            await octokit.pulls.createReview({
+              owner,
+              repo,
+              pull_number: prNumber,
+              event: 'APPROVE',
+              body: 'Approved by SodateruReviewBot'
+            });
+            
+            console.log(`PR #${prNumber} has been approved by the GitHub App`);
+      
+      - name: Enable auto-merge and wait for merge
+        run: |
+          PR_NUMBER="${{ steps.create_pr.outputs.pr_number }}"
+          PR_URL="https://github.com/${{ github.repository }}/pull/${PR_NUMBER}"
           
-          # Self-approve the PR to meet approval requirements
-          gh pr review ${PR_URL} --approve -b "Auto-approved by GitHub Actions"
-          
-          # Enable auto-merge and execute
+          # Enable auto-merge
           gh pr merge ${PR_URL} --auto --merge
           
           # Debug: Show PR status output for troubleshooting
