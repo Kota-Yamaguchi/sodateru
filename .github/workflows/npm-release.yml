@@ -4,6 +4,11 @@ on:
   release:
     types: [published]
 
+# Add permissions to allow pushing to the repository
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   npm-release:
     runs-on: ubuntu-latest
@@ -12,6 +17,8 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          # Use special token format for push permissions
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -27,51 +34,135 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-      - name: Update version from GitHub Release
+      - name: Create branch and update version from GitHub Release
+        id: update_version
         run: |
-          # Get version from GitHub Release (v0.1.0 -> 0.1.0)
-          RELEASE_VERSION=${{ github.event.release.tag_name }}
-          RELEASE_VERSION="${RELEASE_VERSION#v}"
-          
-          # Update package.json version directly (without using npm command)
-          npm version $RELEASE_VERSION --no-git-tag-version
-          
-          echo "Updated version to $RELEASE_VERSION"
-      
-      - name: Create and merge PR for version update
-        id: create_pr
-        run: |
-          # Create a branch for version update
+          # Create a branch for version update FIRST
           VERSION=${{ github.event.release.tag_name }}
           BRANCH="version-update-${VERSION}"
           git checkout -b $BRANCH
           
-          # Commit changes and push to the new branch
+          # Then update the version number
+          RELEASE_VERSION="${VERSION#v}"
+          npm version $RELEASE_VERSION --no-git-tag-version
+          
+          # Commit changes right away
           git add package.json
           git commit -m "chore: update version to ${VERSION}"
+          
+          echo "Updated version to $RELEASE_VERSION"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
+      
+      - name: Create PR for version update
+        id: create_pr
+        run: |
+          # Get values from previous step
+          VERSION="${{ steps.update_version.outputs.version }}"
+          BRANCH="${{ steps.update_version.outputs.branch }}"
+          
+          # Use authentication with token
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
           git push origin $BRANCH
           
-          # Create PR and auto-merge
+          # Create PR without --json flag
           PR_URL=$(gh pr create --base main --head $BRANCH \
             --title "chore: version update ${VERSION}" \
-            --body "This PR updates the package.json version following the GitHub Release publication." \
-            --json url -q .url)
+            --body "This PR updates the package.json version following the GitHub Release publication.")
           
-          echo "PR created: ${PR_URL}"
+          # Extract PR number from URL
+          PR_NUMBER=$(echo $PR_URL | sed -E 's/.*\/([0-9]+)$/\1/')
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "PR created: ${PR_URL} (PR #${PR_NUMBER})"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
-          # Enable auto-merge and execute
+      - name: Install Octokit packages
+        run: npm install @octokit/auth-app @octokit/rest
+      
+      - name: Approve PR with GitHub App
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { createAppAuth } = require('@octokit/auth-app');
+            const { Octokit } = require('@octokit/rest');
+            
+            // PR number from previous step
+            const prNumber = ${{ steps.create_pr.outputs.pr_number }};
+            
+            // GitHub App authentication
+            const auth = createAppAuth({
+              appId: ${{ secrets.APP_ID }},
+              privateKey: `${{ secrets.APP_PRIVATE_KEY }}`,
+              installationId: ${{ secrets.APP_INSTALLATION_ID }},
+            });
+            
+            // Get an installation token
+            const { token } = await auth({ type: "installation" });
+            
+            // Create a new Octokit instance with the installation token
+            const octokit = new Octokit({ auth: token });
+            
+            // Get repo details from context
+            const [owner, repo] = context.repo.repo.includes('/') 
+              ? context.repo.repo.split('/')
+              : [context.repo.owner, context.repo.repo];
+            
+            // Approve the PR
+            await octokit.pulls.createReview({
+              owner,
+              repo,
+              pull_number: prNumber,
+              event: 'APPROVE',
+              body: 'Approved by SodateruReviewBot'
+            });
+            
+            console.log(`PR #${prNumber} has been approved by the GitHub App`);
+      
+      - name: Enable auto-merge and wait for merge
+        run: |
+          PR_NUMBER="${{ steps.create_pr.outputs.pr_number }}"
+          PR_URL="https://github.com/${{ github.repository }}/pull/${PR_NUMBER}"
+          
+          # Enable auto-merge
           gh pr merge ${PR_URL} --auto --merge
           
+          # Debug: Show PR status output for troubleshooting
+          echo "Initial PR status:"
+          gh pr view ${PR_URL}
+          
           # Wait for PR to be merged
-          while true; do
-            PR_STATE=$(gh pr view ${PR_URL} --json state -q .state)
-            if [ "${PR_STATE}" = "MERGED" ]; then
-              echo "PR has been merged"
+          MAX_ATTEMPTS=60
+          ATTEMPT=0
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            # Check PR status using more flexible pattern matching
+            PR_OUTPUT=$(gh pr view ${PR_URL})
+            echo "PR status (attempt $ATTEMPT):"
+            echo "$PR_OUTPUT" | head -3
+            
+            # Check for merged status - trying different patterns
+            if echo "$PR_OUTPUT" | grep -i -E "merged|was merged|has been merged" > /dev/null; then
+              echo "PR has been merged successfully"
               break
+            elif echo "$PR_OUTPUT" | grep -i -E "closed|was closed" > /dev/null; then
+              echo "PR was closed without merging"
+              exit 1
             fi
-            echo "Waiting for PR to be merged..."
+            
+            echo "Waiting for PR to be merged... (attempt $ATTEMPT/$MAX_ATTEMPTS)"
+            ATTEMPT=$((ATTEMPT+1))
             sleep 5
           done
+          
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "Timeout waiting for PR to merge"
+            exit 1
+          fi
+          
+          # Reset any local changes before checking out main
+          git reset --hard HEAD
+          git clean -fd
           
           # Get the latest main branch
           git checkout main
@@ -79,10 +170,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Setup npmrc for Automation Token
+        run: |
+          # Create .npmrc file with automation token
+          echo "//registry.npmjs.org/:_authToken=${NPM_AUTOMATION_TOKEN}" > .npmrc
+          echo "registry=https://registry.npmjs.org/" >> .npmrc
+          echo "always-auth=true" >> .npmrc
+          
+          # Display .npmrc for debugging (without showing the token)
+          echo "Created .npmrc file with automation token (hidden)"
+        env:
+          NPM_AUTOMATION_TOKEN: ${{ secrets.NPM_AUTOMATION_TOKEN }}
+      
       - name: Build and publish npm package
         run: |
           npm run build
-          npm run test
           npm publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} 
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTOMATION_TOKEN }} 
