@@ -72,6 +72,9 @@ jobs:
           echo "PR created: ${PR_URL} (PR #${PR_NUMBER})"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Install Octokit packages
+        run: npm install @octokit/auth-app @octokit/rest
       
       - name: Approve PR with GitHub App
         uses: actions/github-script@v6
