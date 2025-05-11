@@ -160,6 +160,10 @@ jobs:
             exit 1
           fi
           
+          # Reset any local changes before checking out main
+          git reset --hard HEAD
+          git clean -fd
+          
           # Get the latest main branch
           git checkout main
           git pull origin main
