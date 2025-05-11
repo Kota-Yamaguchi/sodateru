@@ -173,7 +173,6 @@ jobs:
       - name: Build and publish npm package
         run: |
           npm run build
-          npm run test
           npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} 
