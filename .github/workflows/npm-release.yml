@@ -1,0 +1,88 @@
+name: NPM Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  npm-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Update version from GitHub Release
+        run: |
+          # Get version from GitHub Release (v0.1.0 -> 0.1.0)
+          RELEASE_VERSION=${{ github.event.release.tag_name }}
+          RELEASE_VERSION="${RELEASE_VERSION#v}"
+          
+          # Update package.json version directly (without using npm command)
+          npm version $RELEASE_VERSION --no-git-tag-version
+          
+          echo "Updated version to $RELEASE_VERSION"
+      
+      - name: Create and merge PR for version update
+        id: create_pr
+        run: |
+          # Create a branch for version update
+          VERSION=${{ github.event.release.tag_name }}
+          BRANCH="version-update-${VERSION}"
+          git checkout -b $BRANCH
+          
+          # Commit changes and push to the new branch
+          git add package.json
+          git commit -m "chore: update version to ${VERSION}"
+          git push origin $BRANCH
+          
+          # Create PR and auto-merge
+          PR_URL=$(gh pr create --base main --head $BRANCH \
+            --title "chore: version update ${VERSION}" \
+            --body "This PR updates the package.json version following the GitHub Release publication." \
+            --json url -q .url)
+          
+          echo "PR created: ${PR_URL}"
+          
+          # Enable auto-merge and execute
+          gh pr merge ${PR_URL} --auto --merge
+          
+          # Wait for PR to be merged
+          while true; do
+            PR_STATE=$(gh pr view ${PR_URL} --json state -q .state)
+            if [ "${PR_STATE}" = "MERGED" ]; then
+              echo "PR has been merged"
+              break
+            fi
+            echo "Waiting for PR to be merged..."
+            sleep 5
+          done
+          
+          # Get the latest main branch
+          git checkout main
+          git pull origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Build and publish npm package
+        run: |
+          npm run build
+          npm run test
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} 
