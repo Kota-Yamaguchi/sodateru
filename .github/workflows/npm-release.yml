@@ -4,6 +4,11 @@ on:
   release:
     types: [published]
 
+# Add permissions to allow pushing to the repository
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   npm-release:
     runs-on: ubuntu-latest
@@ -12,6 +17,8 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          # Use special token format for push permissions
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -49,6 +56,9 @@ jobs:
           # Commit changes and push to the new branch
           git add package.json
           git commit -m "chore: update version to ${VERSION}"
+          
+          # Use authentication with token
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
           git push origin $BRANCH
           
           # Create PR and auto-merge
