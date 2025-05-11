@@ -1,6 +1,6 @@
 {
 	"name": "sodateru",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/Kota-Yamaguchi/sodateru"
@@ -26,7 +26,13 @@
 	"bin": {
 		"mcp-server-sodateru": "cli.js"
 	},
-	"files": ["cli.js", "dist/**/*", "config/**/*", "README.md", "LICENSE"],
+	"files": [
+		"cli.js",
+		"dist/**/*",
+		"config/**/*",
+		"README.md",
+		"LICENSE"
+	],
 	"keywords": [],
 	"author": "Kota Yamaguchi",
 	"license": "MIT",
