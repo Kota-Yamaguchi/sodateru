@@ -1,5 +1,5 @@
 {
-	"name": "@sodateru",
+	"name": "sodateru",
 	"version": "0.0.2",
 	"repository": {
 		"type": "git",
@@ -26,13 +26,7 @@
 	"bin": {
 		"mcp-server-sodateru": "cli.js"
 	},
-	"files": [
-		"cli.js",
-		"dist/**/*",
-		"config/**/*",
-		"README.md",
-		"LICENSE"
-	],
+	"files": ["cli.js", "dist/**/*", "config/**/*", "README.md", "LICENSE"],
 	"keywords": [],
 	"author": "Kota Yamaguchi",
 	"license": "MIT",
