@@ -61,11 +61,10 @@ jobs:
           git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
           git push origin $BRANCH
           
-          # Create PR and auto-merge
+          # Create PR without --json flag
           PR_URL=$(gh pr create --base main --head $BRANCH \
             --title "chore: version update ${VERSION}" \
-            --body "This PR updates the package.json version following the GitHub Release publication." \
-            --json url -q .url)
+            --body "This PR updates the package.json version following the GitHub Release publication.")
           
           echo "PR created: ${PR_URL}"
           
@@ -74,12 +73,16 @@ jobs:
           
           # Wait for PR to be merged
           while true; do
-            PR_STATE=$(gh pr view ${PR_URL} --json state -q .state)
-            if [ "${PR_STATE}" = "MERGED" ]; then
+            # Check PR status without using --json flag
+            PR_STATE=$(gh pr view ${PR_URL} | grep "State:" | awk '{print $2}')
+            if [ "${PR_STATE}" = "MERGED" ] || [ "${PR_STATE}" = "merged" ]; then
               echo "PR has been merged"
               break
+            elif [ "${PR_STATE}" = "CLOSED" ] || [ "${PR_STATE}" = "closed" ]; then
+              echo "PR was closed without merging"
+              exit 1
             fi
-            echo "Waiting for PR to be merged..."
+            echo "Waiting for PR to be merged... Current state: ${PR_STATE}"
             sleep 5
           done
           
